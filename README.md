@@ -3,6 +3,6 @@
 ### 1.导入包
 #### git get github.com/WangYJian/QR_code_wechat.git
 ### 2.创建QRCode对象
-#### QRCode := NewQRCode("access_token")
+#### QRCode, err := NewQRCode("app_id", "app_secret")
 ### 3.生成对应用户的含参二维码，获取二维码media_id
-#### media_id = QRCode.GenerateQRCode("user_id")
+#### media_id, err = QRCode.GenerateQRCode("user_id")

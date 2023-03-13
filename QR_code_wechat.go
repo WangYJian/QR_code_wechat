@@ -3,6 +3,7 @@ package QR_code_wechat
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 )
@@ -60,8 +61,28 @@ func (q *QRCode) GenerateQRCode(userId string) (string, error) {
 	return media_id, nil
 }
 
-func NewQRCode(accessToken string) *QRCode {
-	return &QRCode{
-		AccessToken: accessToken,
+func NewQRCode(appId string, appSecret string) (*QRCode, error) {
+	// 请求微信接口，获取access_token
+	url := "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=" + appId + "&secret=" + appSecret
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
 	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	access_token := result["access_token"].(string)
+	if access_token == "" {
+		return nil, errors.New(result["errmsg"].(string))
+	}
+	return &QRCode{
+		AccessToken: access_token,
+	}, nil
 }
