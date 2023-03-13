@@ -1,4 +1,4 @@
-module QR_code_wechat
+module github.com/WangYJian/QR_code_wechat
 
 go 1.19
 
