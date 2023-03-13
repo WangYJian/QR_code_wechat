@@ -3,9 +3,10 @@ package QR_code_wechat
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
+	"strconv"
 )
 
 type QRCode struct {
@@ -40,14 +41,29 @@ func (q *QRCode) GenerateQRCode(userId string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-
-	// 上传图片到微信服务器
-	url = "https://api.weixin.qq.com/cgi-bin/media/upload?access_token=" + q.AccessToken + "&type=image"
-	resp, err = http.Post(url, "image/jpeg", resp.Body)
+	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+
+	buf := &bytes.Buffer{}
+	writer := multipart.NewWriter(buf)
+	part, err := writer.CreateFormFile("media", userId+".jpg")
+	if err != nil {
+		return "", err
+	}
+	_, err = part.Write(body)
+	if err != nil {
+		return "", err
+	}
+	writer.WriteField("filename", userId+".jpg")
+	writer.WriteField("filelength", strconv.FormatInt(int64(len(body)), 10))
+	writer.WriteField("content-type", "image/jpeg")
+	writer.Close()
+
+	// 上传图片到微信服务器
+	url = "https://api.weixin.qq.com/cgi-bin/media/upload?access_token=" + q.AccessToken + "&type=image"
+	resp, err = http.Post(url, "multipart/form-data", buf)
 
 	// 解析微信返回的json
 	body, err = ioutil.ReadAll(resp.Body)
@@ -57,32 +73,12 @@ func (q *QRCode) GenerateQRCode(userId string) (string, error) {
 	}
 
 	// 获取media_id
-	media_id := result["media_id"].(string)
-	return media_id, nil
+	mediaId := result["media_id"].(string)
+	return mediaId, nil
 }
 
-func NewQRCode(appId string, appSecret string) (*QRCode, error) {
-	// 请求微信接口，获取access_token
-	url := "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=" + appId + "&secret=" + appSecret
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var result map[string]interface{}
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return nil, err
-	}
-	access_token := result["access_token"].(string)
-	if access_token == "" {
-		return nil, errors.New(result["errmsg"].(string))
-	}
+func NewQRCode(accessToken string) (*QRCode, error) {
 	return &QRCode{
-		AccessToken: access_token,
+		AccessToken: accessToken,
 	}, nil
 }
